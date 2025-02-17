@@ -1,5 +1,6 @@
-#include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
+#include "driver/gpio.h"
 
 #include "ic_74hc595_driver.h"
 
@@ -18,11 +19,13 @@
 static const char* TAG = "ic_74hc595_driver";
 
 typedef struct {
-    gpio_num_t mr_;  /* Master Reset                 (主复位) */
-    gpio_num_t shcp; /* Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
-    gpio_num_t stcp; /* Storage Register Clock Pulse (存储寄存器时钟脉冲) */
-    gpio_num_t oe_;  /* Output Enable                (输出使能) */
-    gpio_num_t ds;   /* Data Serial                  (串行数据输入) */
+    gpio_num_t mr_;             /* Master Reset                 (主复位) */
+    gpio_num_t shcp;            /* Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
+    gpio_num_t stcp;            /* Storage Register Clock Pulse (存储寄存器时钟脉冲) */
+    gpio_num_t oe_;             /* Output Enable                (输出使能) */
+    gpio_num_t ds;              /* Data Serial                  (串行数据输入) */
+    uint32_t shcp_clk_delay_us; /* Clock timing delay for SHCP  (SHCP的时钟延迟) */
+    uint32_t stcp_clk_delay_us; /* Clock timing delay for STCP  (STCP的时钟延迟) */
 } ic_driver_dev_t;
 
 static esp_err_t x4hc595_oe_func_base(const x4hc595_handle_t handle, const uint32_t level) {
@@ -49,6 +52,8 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle)
     dev->oe_ = config->oe_ >= 0 ? config->oe_ : -1;
 
     esp_err_t ret = ESP_OK;
+    dev->shcp_clk_delay_us = 0;
+    dev->stcp_clk_delay_us = 0;
     gpio_config_t io_config = {
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
@@ -105,6 +110,19 @@ esp_err_t x4hc595_deinit(x4hc595_handle_t* handle) {
     return ESP_OK;
 }
 
+esp_err_t x4hc595_set_clock_delay(
+    const x4hc595_handle_t handle, const uint32_t shcp_clk_delay_us, const uint32_t stcp_clk_delay_us
+) {
+    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+
+    ic_driver_dev_t* dev = handle;
+
+    dev->shcp_clk_delay_us = shcp_clk_delay_us;
+    dev->stcp_clk_delay_us = stcp_clk_delay_us;
+
+    return ESP_OK;
+}
+
 esp_err_t x4hc595_write(const x4hc595_handle_t handle, const uint8_t data) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
@@ -112,7 +130,9 @@ esp_err_t x4hc595_write(const x4hc595_handle_t handle, const uint8_t data) {
 
     for (int i = 0; i < 8; i++) {
         gpio_set_level(dev->ds, data >> i & 0x01);
+        if (dev->shcp_clk_delay_us > 0) { esp_rom_delay_us(dev->shcp_clk_delay_us); }
         gpio_set_level(dev->shcp, 1);
+        if (dev->shcp_clk_delay_us > 0) { esp_rom_delay_us(dev->shcp_clk_delay_us); }
         gpio_set_level(dev->shcp, 0);
     }
 
@@ -125,6 +145,7 @@ esp_err_t x4hc595_latch(const x4hc595_handle_t handle) {
     const ic_driver_dev_t* dev = handle;
 
     gpio_set_level(dev->stcp, 1);
+    if (dev->stcp_clk_delay_us > 0) { esp_rom_delay_us(dev->stcp_clk_delay_us); }
     gpio_set_level(dev->stcp, 0);
 
     return ESP_OK;

@@ -47,6 +47,19 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle)
 esp_err_t x4hc595_deinit(x4hc595_handle_t* handle);
 
 /**
+ * @brief Set the clock delay for the x4HC595
+ *
+ * @param[in] handle          Handle to the x4HC595 driver instance.
+ * @param[in] shcp_clk_delay_us  Clock timing delay for SHCP.
+ * @param[in] stcp_clk_delay_us  Clock timing delay for STCP.
+ *
+ * @return
+ * - `ESP_OK`               Successful operation.
+ * - `ESP_ERR_INVALID_ARG`  The handle is invalid or `NULL`.
+ */
+esp_err_t x4hc595_set_clock_delay(x4hc595_handle_t handle, uint32_t shcp_clk_delay_us, uint32_t stcp_clk_delay_us);
+
+/**
  * @brief Write a single byte of data to the x4HC595
  *
  * @param[in] handle Handle to the x4HC595 driver instance.
