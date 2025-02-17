@@ -25,7 +25,7 @@ typedef struct {
     gpio_num_t ds;   /* Data Serial                  (串行数据输入) */
 } ic_driver_dev_t;
 
-static esp_err_t ic_74hc595_oe_func_base(const ic_74hc595_handle_t handle, const uint32_t level) {
+static esp_err_t x4hc595_oe_func_base(const x4hc595_handle_t handle, const uint32_t level) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
     const ic_driver_dev_t* dev = handle;
@@ -36,7 +36,7 @@ static esp_err_t ic_74hc595_oe_func_base(const ic_74hc595_handle_t handle, const
     return ESP_OK;
 }
 
-esp_err_t ic_74hc595_init(const ic_74hc595_config_t* config, ic_74hc595_handle_t* handle) {
+esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle) {
     IC_DRIVER_CHECK_RETURN(config != NULL, "The pointer of config is NULL", ESP_ERR_INVALID_ARG);
 
     ic_driver_dev_t* dev = malloc(sizeof(ic_driver_dev_t));
@@ -76,10 +76,10 @@ esp_err_t ic_74hc595_init(const ic_74hc595_config_t* config, ic_74hc595_handle_t
      * Set the initial state of the 74HC595 output to 0 / High-Z.
      * Clear the 74HC595 shift register & output register, setting all stored bits to 0.
      */
-    if (dev->oe_ >= 0) { ic_74hc595_disable_output(dev); }
-    ic_74hc595_reset(dev);
+    if (dev->oe_ >= 0) { x4hc595_disable_output(dev); }
+    x4hc595_reset(dev);
 
-    *handle = (ic_74hc595_handle_t)dev;
+    *handle = (x4hc595_handle_t)dev;
     return ESP_OK;
 
 clean_up:
@@ -87,7 +87,7 @@ clean_up:
     return ret;
 }
 
-esp_err_t ic_74hc595_deinit(ic_74hc595_handle_t* handle) {
+esp_err_t x4hc595_deinit(x4hc595_handle_t* handle) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The pointer of handle is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(*handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
@@ -105,7 +105,7 @@ esp_err_t ic_74hc595_deinit(ic_74hc595_handle_t* handle) {
     return ESP_OK;
 }
 
-esp_err_t ic_74hc595_write(const ic_74hc595_handle_t handle, const uint8_t data) {
+esp_err_t x4hc595_write(const x4hc595_handle_t handle, const uint8_t data) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
     const ic_driver_dev_t* dev = handle;
@@ -119,7 +119,7 @@ esp_err_t ic_74hc595_write(const ic_74hc595_handle_t handle, const uint8_t data)
     return ESP_OK;
 }
 
-esp_err_t ic_74hc595_latch(const ic_74hc595_handle_t handle) {
+esp_err_t x4hc595_latch(const x4hc595_handle_t handle) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
     const ic_driver_dev_t* dev = handle;
@@ -130,15 +130,15 @@ esp_err_t ic_74hc595_latch(const ic_74hc595_handle_t handle) {
     return ESP_OK;
 }
 
-esp_err_t ic_74hc595_enable_output(const ic_74hc595_handle_t handle) {
-    return ic_74hc595_oe_func_base(handle, 0);
+esp_err_t x4hc595_enable_output(const x4hc595_handle_t handle) {
+    return x4hc595_oe_func_base(handle, 0);
 }
 
-esp_err_t ic_74hc595_disable_output(const ic_74hc595_handle_t handle) {
-    return ic_74hc595_oe_func_base(handle, 1);
+esp_err_t x4hc595_disable_output(const x4hc595_handle_t handle) {
+    return x4hc595_oe_func_base(handle, 1);
 }
 
-esp_err_t ic_74hc595_reset(const ic_74hc595_handle_t handle) {
+esp_err_t x4hc595_reset(const x4hc595_handle_t handle) {
     IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
     const ic_driver_dev_t* dev = handle;
@@ -148,8 +148,8 @@ esp_err_t ic_74hc595_reset(const ic_74hc595_handle_t handle) {
         gpio_set_level(dev->mr_, 1);
     } else {
         ESP_LOGI(TAG, "IC Master Reset Pin is offline, using software reset instead");
-        ic_74hc595_write(handle, 0x00);
-        ic_74hc595_latch(handle);
+        x4hc595_write(handle, 0x00);
+        x4hc595_latch(handle);
     }
 
     return ESP_OK;
