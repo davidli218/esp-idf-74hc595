@@ -9,11 +9,12 @@
  * @brief Configuration structure for x4HC595 driver
  */
 typedef struct {
-    gpio_num_t mr_;  /*!<         Master Reset         */
-    gpio_num_t shcp; /*!<  Shift Register Clock Pulse  */
-    gpio_num_t stcp; /*!< Storage Register Clock Pulse */
-    gpio_num_t oe_;  /*!<        Output Enable         */
-    gpio_num_t ds;   /*!<         Data Serial          */
+    gpio_num_t mr_;     /*!<         Master Reset         */
+    gpio_num_t shcp;    /*!<  Shift Register Clock Pulse  */
+    gpio_num_t stcp;    /*!< Storage Register Clock Pulse */
+    gpio_num_t oe_;     /*!<        Output Enable         */
+    gpio_num_t ds;      /*!<         Data Serial          */
+    size_t num_devices; /*!<   Number of cascaded chips   */
 } x4hc595_config_t;
 
 /**

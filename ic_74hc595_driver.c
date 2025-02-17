@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "driver/gpio.h"
@@ -16,16 +18,32 @@
         goto label;                                                \
     }
 
+#define IC_DRIVER_CHECK_GOTO_WITH_OP(a, str, label, op)            \
+    if (!(a)) {                                                    \
+        ESP_LOGE(TAG, "%s:(%d): %s", __FUNCTION__, __LINE__, str); \
+        op;                                                        \
+        goto label;                                                \
+    }
+
 static const char* TAG = "ic_74hc595_driver";
 
 typedef struct {
-    gpio_num_t mr_;             /* Master Reset                 (主复位) */
-    gpio_num_t shcp;            /* Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
-    gpio_num_t stcp;            /* Storage Register Clock Pulse (存储寄存器时钟脉冲) */
-    gpio_num_t oe_;             /* Output Enable                (输出使能) */
-    gpio_num_t ds;              /* Data Serial                  (串行数据输入) */
-    uint32_t shcp_clk_delay_us; /* Clock timing delay for SHCP  (SHCP的时钟延迟) */
-    uint32_t stcp_clk_delay_us; /* Clock timing delay for STCP  (STCP的时钟延迟) */
+    uint8_t* data;     /* Data array (储存数据的数组) */
+    size_t data_len;   /* Count of data in the array (数组中的数据数量) */
+    size_t head;       /* Index of the first data in the array (数组中第一个数据的索引) */
+    size_t queue_size; /* Size of the data array (B) (数据数组的大小) */
+} x4hc595_state_queue_t;
+
+typedef struct {
+    gpio_num_t mr_;                       /* Master Reset                 (主复位) */
+    gpio_num_t shcp;                      /* Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
+    gpio_num_t stcp;                      /* Storage Register Clock Pulse (存储寄存器时钟脉冲) */
+    gpio_num_t oe_;                       /* Output Enable                (输出使能) */
+    gpio_num_t ds;                        /* Data Serial                  (串行数据输入) */
+    uint32_t shcp_clk_delay_us;           /* Clock timing delay for SHCP  (SHCP的时钟延迟) */
+    uint32_t stcp_clk_delay_us;           /* Clock timing delay for STCP  (STCP的时钟延迟) */
+    size_t num_devices;                   /* Number of cascaded chips     (级联芯片的数量) */
+    x4hc595_state_queue_t current_states; /* Current state of all devices (设备的当前状态) */
 } ic_driver_dev_t;
 
 static esp_err_t x4hc595_oe_func_base(const x4hc595_handle_t handle, const uint32_t level) {
@@ -41,19 +59,32 @@ static esp_err_t x4hc595_oe_func_base(const x4hc595_handle_t handle, const uint3
 
 esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle) {
     IC_DRIVER_CHECK_RETURN(config != NULL, "The pointer of config is NULL", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must >= 0", ESP_ERR_INVALID_ARG);
+
+    esp_err_t ret = ESP_OK;
 
     ic_driver_dev_t* dev = malloc(sizeof(ic_driver_dev_t));
     IC_DRIVER_CHECK_RETURN(dev != NULL, "Memory allocation failed", ESP_ERR_NO_MEM);
 
+    dev->current_states.queue_size = config->num_devices * sizeof(uint8_t);
+    dev->current_states.data_len = config->num_devices * 8;
+    dev->current_states.head = 0;
+    dev->current_states.data = malloc(dev->current_states.queue_size);
+    IC_DRIVER_CHECK_GOTO_WITH_OP(
+        dev->current_states.data != NULL, "Memory allocation failed", clean_up, ret = ESP_ERR_NO_MEM
+    );
+    memset(dev->current_states.data, 0, dev->current_states.queue_size);
+
+    dev->num_devices = config->num_devices;
     dev->ds = config->ds;
     dev->shcp = config->shcp;
     dev->stcp = config->stcp;
     dev->mr_ = config->mr_ >= 0 ? config->mr_ : -1;
     dev->oe_ = config->oe_ >= 0 ? config->oe_ : -1;
 
-    esp_err_t ret = ESP_OK;
     dev->shcp_clk_delay_us = 0;
     dev->stcp_clk_delay_us = 0;
+
     gpio_config_t io_config = {
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
@@ -88,6 +119,9 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle)
     return ESP_OK;
 
 clean_up:
+    if (dev->current_states.data) {
+        free(dev->current_states.data);
+    }
     free(dev);
     return ret;
 }
@@ -97,6 +131,10 @@ esp_err_t x4hc595_deinit(x4hc595_handle_t* handle) {
     IC_DRIVER_CHECK_RETURN(*handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
 
     ic_driver_dev_t* dev = *handle;
+
+    if (dev->current_states.data) {
+        free(dev->current_states.data);
+    }
 
     gpio_reset_pin(dev->shcp);
     gpio_reset_pin(dev->stcp);
