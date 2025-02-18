@@ -21,26 +21,26 @@ typedef struct {
  * @brief Circular queue structure for storing x4HC595 device states.
  */
 typedef struct {
-    uint8_t* data;    /*!< Data array                           (储存数据的数组) */
-    size_t data_len;  /*!< Count of data in the array           (数组中的数据数量) */
-    size_t head;      /*!< Index of the first data in the array (数组中第一个数据的索引) */
-    size_t data_size; /*!< Size of the data array (B)           (数据数组的大小) */
-} x4hc595_state_queue_t;
+    uint8_t* data;   /*!< Data array                           (储存数据的数组) */
+    size_t head;     /*!< Index of the first data in the array (数组中第一个数据的索引) */
+    size_t data_len; /*!< Count of data in the array           (数组中的数据数量) */
+} x4hc595_sr_state_queue_t;
 
 /**
  * @brief Stores all relevant information for a particular x4HC595 device.
  */
 typedef struct {
-    gpio_num_t mr_;                       /*!< Master Reset                 (主复位) */
-    gpio_num_t shcp;                      /*!< Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
-    gpio_num_t stcp;                      /*!< Storage Register Clock Pulse (存储寄存器时钟脉冲) */
-    gpio_num_t oe_;                       /*!< Output Enable                (输出使能) */
-    gpio_num_t ds;                        /*!< Data Serial                  (串行数据输入) */
-    uint32_t shcp_clk_delay_us;           /*!< Clock timing delay for SHCP  (SHCP的时钟延迟) */
-    uint32_t stcp_clk_delay_us;           /*!< Clock timing delay for STCP  (STCP的时钟延迟) */
-    size_t num_devices;                   /*!< Number of cascaded devices   (级联芯片的数量) */
-    uint32_t is_output_enabled;           /*!< Output enable status         (输出使能状态) */
-    x4hc595_state_queue_t current_states; /*!< Current state of all devices (设备的当前状态) */
+    gpio_num_t mr_;                    /*!< Master Reset                 (主复位) */
+    gpio_num_t shcp;                   /*!< Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
+    gpio_num_t stcp;                   /*!< Storage Register Clock Pulse (存储寄存器时钟脉冲) */
+    gpio_num_t oe_;                    /*!< Output Enable                (输出使能) */
+    gpio_num_t ds;                     /*!< Data Serial                  (串行数据输入) */
+    uint32_t shcp_clk_delay_us;        /*!< Clock timing delay for SHCP  (SHCP的时钟延迟) */
+    uint32_t stcp_clk_delay_us;        /*!< Clock timing delay for STCP  (STCP的时钟延迟) */
+    size_t num_devices;                /*!< Number of cascaded devices   (级联芯片的数量) */
+    uint32_t is_output_enabled;        /*!< Output enable status         (输出使能状态) */
+    x4hc595_sr_state_queue_t sr_state; /*!< Shift register states        (移位寄存器状态) */
+    uint32_t* lr_states;               /*!< Latch register states        (锁存寄存器状态) */
 } x4hc595_t;
 
 /**

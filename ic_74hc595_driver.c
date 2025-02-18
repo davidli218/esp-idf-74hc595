@@ -42,14 +42,22 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must >= 0", ESP_ERR_INVALID_ARG);
 
-    device->current_states.head = 0;
-    device->current_states.data_len = config->num_devices * 8;
-    device->current_states.data_size = config->num_devices * sizeof(uint8_t);
-    device->current_states.data = malloc(device->current_states.data_size);
+    esp_err_t ret = ESP_OK;
+
+    device->sr_state.head = 0;
+    device->sr_state.data_len = config->num_devices;
+    device->sr_state.data = malloc(device->sr_state.data_len * sizeof(uint8_t));
     IC_DRIVER_CHECK_RETURN(
-        device->current_states.data != NULL, "Memory allocation failed", ESP_ERR_NO_MEM
+        device->sr_state.data != NULL, "Memory allocation failed", ESP_ERR_NO_MEM
     );
-    memset(device->current_states.data, 0, device->current_states.data_size);
+    memset(device->sr_state.data, 0, device->sr_state.data_len * sizeof(uint8_t));
+
+    device->lr_states = malloc(config->num_devices * sizeof(uint8_t));
+    IC_DRIVER_CHECK_GOTO_WITH_OP(
+        device->lr_states != NULL, "Memory allocation failed", clean_up,
+        ret = ESP_ERR_NO_MEM
+    );
+    memset(device->lr_states, 0, config->num_devices * sizeof(uint8_t));
 
     device->num_devices = config->num_devices;
     device->ds = config->ds;
@@ -69,7 +77,6 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
         .intr_type = GPIO_INTR_DISABLE,
     };
 
-    esp_err_t ret = ESP_OK;
     if (1) {
         io_config.pin_bit_mask = (1ULL << device->shcp) | (1ULL << device->stcp) | (1ULL << device->ds);
         ret = gpio_config(&io_config);
@@ -96,16 +103,16 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
     return ESP_OK;
 
 clean_up:
-    free(device->current_states.data);
+    free(device->sr_state.data);
+    if (device->lr_states) { free(device->lr_states); }
     return ret;
 }
 
 esp_err_t x4hc595_deinit(const x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    if (device->current_states.data) {
-        free(device->current_states.data);
-    }
+    if (device->sr_state.data) { free(device->sr_state.data); }
+    if (device->lr_states) { free(device->lr_states); }
 
     gpio_reset_pin(device->shcp);
     gpio_reset_pin(device->stcp);
@@ -130,8 +137,6 @@ esp_err_t x4hc595_set_clock_delay(
 esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    // TODO: Update `current_states`
-
     /* LSB first */
     for (int i = 0; i < 8; i++) {
         gpio_set_level(device->ds, data >> i & 0x01);
@@ -140,6 +145,9 @@ esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
         if (device->shcp_clk_delay_us > 0) { esp_rom_delay_us(device->shcp_clk_delay_us); }
         gpio_set_level(device->shcp, 0);
     }
+
+    device->sr_state.head = (device->sr_state.head - 1) % device->sr_state.data_len;
+    device->sr_state.data[device->sr_state.head] = data;
 
     return ESP_OK;
 }
@@ -150,6 +158,10 @@ esp_err_t x4hc595_latch(const x4hc595_t* device) {
     gpio_set_level(device->stcp, 1);
     if (device->stcp_clk_delay_us > 0) { esp_rom_delay_us(device->stcp_clk_delay_us); }
     gpio_set_level(device->stcp, 0);
+
+    for (int i = 0; i < device->num_devices; i++) {
+        device->lr_states[i] = device->sr_state.data[(device->sr_state.head + i) % device->sr_state.data_len];
+    }
 
     return ESP_OK;
 }
@@ -173,6 +185,9 @@ esp_err_t x4hc595_reset(x4hc595_t* device) {
         x4hc595_write(device, 0x00);
         x4hc595_latch(device);
     }
+
+    memset(device->sr_state.data, 0, device->sr_state.data_len * sizeof(uint8_t));
+    memset(device->lr_states, 0, device->num_devices * sizeof(uint8_t));
 
     return ESP_OK;
 }
