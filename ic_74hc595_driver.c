@@ -165,6 +165,39 @@ esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
     return ESP_OK;
 }
 
+esp_err_t x4hc595_write_multiple(x4hc595_t* device, const uint8_t* data, const size_t len) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(data != NULL, "The pointer of data is NULL", ESP_ERR_INVALID_ARG);
+
+    for (size_t i = 0; i < len; i++) {
+        x4hc595_write(device, data[i]);
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t x4hc595_write_to_index(x4hc595_t* device, const uint8_t data, const size_t index) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(index < device->num_devices, "The index is out of range", ESP_ERR_INVALID_ARG);
+
+    uint8_t tmp[device->num_devices];
+
+    /* Copy the current state of the shift register */
+    for (int i = 0; i < device->num_devices; i++) {
+        tmp[i] = device->sr_state.data[(device->sr_state.head + i) % device->sr_state.data_len];
+    }
+
+    /* Update the data at the specified index */
+    tmp[index] = data;
+
+    /* Write the updated data back to the shift register */
+    for (int i = (int)device->num_devices - 1; i >= 0; i--) {
+        x4hc595_write(device, tmp[i]);
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t x4hc595_latch(const x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 

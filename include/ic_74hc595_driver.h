@@ -94,6 +94,32 @@ esp_err_t x4hc595_set_clock_delay(x4hc595_t* device, uint32_t shcp_clk_delay_us,
 esp_err_t x4hc595_write(x4hc595_t* device, uint8_t data);
 
 /**
+ * @brief Write multiple bytes of data to the x4HC595
+ *
+ * @param[in] device Pointer to the x4HC595 device instance.
+ * @param[in] data   The data to be written.
+ * @param[in] len    The number of bytes to write.
+ * 
+ * @return
+ * - `ESP_OK`               Successful operation.
+ * - `ESP_ERR_INVALID_ARG`  The handle is invalid or `NULL`.
+ */
+esp_err_t x4hc595_write_multiple(x4hc595_t* device, const uint8_t* data, size_t len);
+
+/**
+ * @brief Write a single byte of data to the x4HC595 at the specified index
+ *
+ * @param[in] device Pointer to the x4HC595 device instance.
+ * @param[in] data   The data to be written.
+ * @param[in] index  The index to write the data to.
+ *
+ * @return
+ * - `ESP_OK`               Successful operation.
+ * - `ESP_ERR_INVALID_ARG`  The handle is invalid or `NULL`.
+ */
+esp_err_t x4hc595_write_to_index(x4hc595_t* device, uint8_t data, size_t index);
+
+/**
  * @brief Latch the shifted data into the output register
  *
  * @param[in] device Pointer to the x4HC595 device instance.
