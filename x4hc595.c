@@ -25,7 +25,7 @@
         goto label;                                                \
     }
 
-static const char* TAG = "ic_74hc595_driver";
+static const char* TAG = "x4hc595";
 
 static esp_err_t x4hc595_oe_func_base(x4hc595_t* device, const uint32_t level) {
     X4HC595_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
