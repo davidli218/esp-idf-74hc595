@@ -159,7 +159,7 @@ esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
         gpio_set_level(device->shcp, 0);
     }
 
-    device->sr_state.head = (device->sr_state.head - 1) % device->sr_state.data_len;
+    device->sr_state.head = (device->sr_state.head + device->sr_state.data_len - 1) % device->sr_state.data_len;
     device->sr_state.data[device->sr_state.head] = data;
 
     return ESP_OK;
