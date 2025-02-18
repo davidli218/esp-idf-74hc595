@@ -39,6 +39,7 @@ typedef struct {
     uint32_t shcp_clk_delay_us;           /*!< Clock timing delay for SHCP  (SHCP的时钟延迟) */
     uint32_t stcp_clk_delay_us;           /*!< Clock timing delay for STCP  (STCP的时钟延迟) */
     size_t num_devices;                   /*!< Number of cascaded devices   (级联芯片的数量) */
+    uint32_t is_output_enabled;           /*!< Output enable status         (输出使能状态) */
     x4hc595_state_queue_t current_states; /*!< Current state of all devices (设备的当前状态) */
 } x4hc595_t;
 

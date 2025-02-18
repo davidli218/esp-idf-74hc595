@@ -32,6 +32,7 @@ static esp_err_t x4hc595_oe_func_base(x4hc595_t* device, const uint32_t level) {
 
     IC_DRIVER_CHECK_RETURN(device->oe_ >= 0, "Output Enable Pin is offline", ESP_ERR_INVALID_ARG);
     gpio_set_level(device->oe_, level);
+    device->is_output_enabled = !level;
 
     return ESP_OK;
 }
@@ -59,6 +60,7 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
 
     device->shcp_clk_delay_us = 0;
     device->stcp_clk_delay_us = 0;
+    device->is_output_enabled = 1;
 
     gpio_config_t io_config = {
         .mode = GPIO_MODE_OUTPUT,
