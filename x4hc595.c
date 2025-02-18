@@ -37,7 +37,7 @@ static esp_err_t x4hc595_oe_func_base(x4hc595_t* device, const uint32_t level) {
     return ESP_OK;
 }
 
-esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
+esp_err_t x4hc595_init(x4hc595_t* device, const x4hc595_config_t* config) {
     IC_DRIVER_CHECK_RETURN(config != NULL, "The pointer of config is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must > 0", ESP_ERR_INVALID_ARG);

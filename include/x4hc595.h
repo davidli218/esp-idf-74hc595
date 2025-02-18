@@ -46,8 +46,8 @@ typedef struct {
 /**
  * @brief Initializes the x4HC595 device with the given configuration.
  *
- * @param[in]  config Pointer to the configuration structure for x4HC595 device.
  * @param[out] device Pointer to the x4hc595_t structure that will be initialized.
+ * @param[in]  config Pointer to the configuration structure for x4HC595 device.
  *
  * @return
  * - `ESP_OK`               Successful initialization.
@@ -55,7 +55,7 @@ typedef struct {
  * - `ESP_ERR_NO_MEM`       Memory allocation fails.
  * - Other error codes from the driver initialization.
  */
-esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device);
+esp_err_t x4hc595_init(x4hc595_t* device, const x4hc595_config_t* config);
 
 /**
  * @brief Deinitialize the x4HC595 device instance.
