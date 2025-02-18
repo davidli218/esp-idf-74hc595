@@ -4,7 +4,7 @@
 #include "esp_rom_sys.h"
 #include "driver/gpio.h"
 
-#include "ic_74hc595_driver.h"
+#include "x4hc595.h"
 
 #define IC_DRIVER_CHECK_RETURN(a, str, ret_val)                   \
     if (!(a)) {                                                   \

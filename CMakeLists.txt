@@ -1,5 +1,5 @@
 idf_component_register(
-        SRCS "ic_74hc595_driver.c"
+        SRCS "x4hc595.c"
         INCLUDE_DIRS "include"
         REQUIRES driver
 )
