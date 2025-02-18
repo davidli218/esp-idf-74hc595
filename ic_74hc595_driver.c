@@ -27,63 +27,38 @@
 
 static const char* TAG = "ic_74hc595_driver";
 
-typedef struct {
-    uint8_t* data;     /* Data array (储存数据的数组) */
-    size_t data_len;   /* Count of data in the array (数组中的数据数量) */
-    size_t head;       /* Index of the first data in the array (数组中第一个数据的索引) */
-    size_t queue_size; /* Size of the data array (B) (数据数组的大小) */
-} x4hc595_state_queue_t;
+static esp_err_t x4hc595_oe_func_base(x4hc595_t* device, const uint32_t level) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-typedef struct {
-    gpio_num_t mr_;                       /* Master Reset                 (主复位) */
-    gpio_num_t shcp;                      /* Shift Register Clock Pulse   (移位寄存器时钟脉冲) */
-    gpio_num_t stcp;                      /* Storage Register Clock Pulse (存储寄存器时钟脉冲) */
-    gpio_num_t oe_;                       /* Output Enable                (输出使能) */
-    gpio_num_t ds;                        /* Data Serial                  (串行数据输入) */
-    uint32_t shcp_clk_delay_us;           /* Clock timing delay for SHCP  (SHCP的时钟延迟) */
-    uint32_t stcp_clk_delay_us;           /* Clock timing delay for STCP  (STCP的时钟延迟) */
-    size_t num_devices;                   /* Number of cascaded chips     (级联芯片的数量) */
-    x4hc595_state_queue_t current_states; /* Current state of all devices (设备的当前状态) */
-} ic_driver_dev_t;
-
-static esp_err_t x4hc595_oe_func_base(const x4hc595_handle_t handle, const uint32_t level) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
-
-    const ic_driver_dev_t* dev = handle;
-
-    IC_DRIVER_CHECK_RETURN(dev->oe_ >= 0, "Output Enable Pin is offline", ESP_ERR_INVALID_ARG);
-    gpio_set_level(dev->oe_, level);
+    IC_DRIVER_CHECK_RETURN(device->oe_ >= 0, "Output Enable Pin is offline", ESP_ERR_INVALID_ARG);
+    gpio_set_level(device->oe_, level);
 
     return ESP_OK;
 }
 
-esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle) {
+esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(config != NULL, "The pointer of config is NULL", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must >= 0", ESP_ERR_INVALID_ARG);
 
-    esp_err_t ret = ESP_OK;
-
-    ic_driver_dev_t* dev = malloc(sizeof(ic_driver_dev_t));
-    IC_DRIVER_CHECK_RETURN(dev != NULL, "Memory allocation failed", ESP_ERR_NO_MEM);
-
-    dev->current_states.queue_size = config->num_devices * sizeof(uint8_t);
-    dev->current_states.data_len = config->num_devices * 8;
-    dev->current_states.head = 0;
-    dev->current_states.data = malloc(dev->current_states.queue_size);
-    IC_DRIVER_CHECK_GOTO_WITH_OP(
-        dev->current_states.data != NULL, "Memory allocation failed", clean_up, ret = ESP_ERR_NO_MEM
+    device->current_states.head = 0;
+    device->current_states.data_len = config->num_devices * 8;
+    device->current_states.data_size = config->num_devices * sizeof(uint8_t);
+    device->current_states.data = malloc(device->current_states.data_size);
+    IC_DRIVER_CHECK_RETURN(
+        device->current_states.data != NULL, "Memory allocation failed", ESP_ERR_NO_MEM
     );
-    memset(dev->current_states.data, 0, dev->current_states.queue_size);
+    memset(device->current_states.data, 0, device->current_states.data_size);
 
-    dev->num_devices = config->num_devices;
-    dev->ds = config->ds;
-    dev->shcp = config->shcp;
-    dev->stcp = config->stcp;
-    dev->mr_ = config->mr_ >= 0 ? config->mr_ : -1;
-    dev->oe_ = config->oe_ >= 0 ? config->oe_ : -1;
+    device->num_devices = config->num_devices;
+    device->ds = config->ds;
+    device->shcp = config->shcp;
+    device->stcp = config->stcp;
+    device->mr_ = config->mr_ >= 0 ? config->mr_ : -1;
+    device->oe_ = config->oe_ >= 0 ? config->oe_ : -1;
 
-    dev->shcp_clk_delay_us = 0;
-    dev->stcp_clk_delay_us = 0;
+    device->shcp_clk_delay_us = 0;
+    device->stcp_clk_delay_us = 0;
 
     gpio_config_t io_config = {
         .mode = GPIO_MODE_OUTPUT,
@@ -92,18 +67,19 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle)
         .intr_type = GPIO_INTR_DISABLE,
     };
 
+    esp_err_t ret = ESP_OK;
     if (1) {
-        io_config.pin_bit_mask = (1ULL << dev->shcp) | (1ULL << dev->stcp) | (1ULL << dev->ds);
+        io_config.pin_bit_mask = (1ULL << device->shcp) | (1ULL << device->stcp) | (1ULL << device->ds);
         ret = gpio_config(&io_config);
         IC_DRIVER_CHECK_GOTO(ret == ESP_OK, "GPIO configuration failed", clean_up);
     }
-    if (dev->oe_ >= 0) {
-        io_config.pin_bit_mask = (1ULL << dev->oe_);
+    if (device->oe_ >= 0) {
+        io_config.pin_bit_mask = (1ULL << device->oe_);
         ret = gpio_config(&io_config);
         IC_DRIVER_CHECK_GOTO(ret == ESP_OK, "GPIO configuration failed", clean_up);
     }
-    if (dev->mr_ >= 0) {
-        io_config.pin_bit_mask = (1ULL << dev->mr_);
+    if (device->mr_ >= 0) {
+        io_config.pin_bit_mask = (1ULL << device->mr_);
         ret = gpio_config(&io_config);
         IC_DRIVER_CHECK_GOTO(ret == ESP_OK, "GPIO configuration failed", clean_up);
     }
@@ -112,103 +88,90 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_handle_t* handle)
      * Set the initial state of the 74HC595 output to 0 / High-Z.
      * Clear the 74HC595 shift register & output register, setting all stored bits to 0.
      */
-    if (dev->oe_ >= 0) { x4hc595_disable_output(dev); }
-    x4hc595_reset(dev);
+    if (device->oe_ >= 0) { x4hc595_disable_output(device); }
+    x4hc595_reset(device);
 
-    *handle = (x4hc595_handle_t)dev;
     return ESP_OK;
 
 clean_up:
-    if (dev->current_states.data) {
-        free(dev->current_states.data);
+    if (device->current_states.data) {
+        free(device->current_states.data);
     }
-    free(dev);
     return ret;
 }
 
-esp_err_t x4hc595_deinit(x4hc595_handle_t* handle) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The pointer of handle is NULL", ESP_ERR_INVALID_ARG);
-    IC_DRIVER_CHECK_RETURN(*handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+esp_err_t x4hc595_deinit(const x4hc595_t* device) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    ic_driver_dev_t* dev = *handle;
-
-    if (dev->current_states.data) {
-        free(dev->current_states.data);
+    if (device->current_states.data) {
+        free(device->current_states.data);
     }
 
-    gpio_reset_pin(dev->shcp);
-    gpio_reset_pin(dev->stcp);
-    gpio_reset_pin(dev->ds);
-    if (dev->oe_ >= 0) { gpio_reset_pin(dev->oe_); }
-    if (dev->mr_ >= 0) { gpio_reset_pin(dev->mr_); }
-
-    free(dev);
-    *handle = NULL;
+    gpio_reset_pin(device->shcp);
+    gpio_reset_pin(device->stcp);
+    gpio_reset_pin(device->ds);
+    if (device->oe_ >= 0) { gpio_reset_pin(device->oe_); }
+    if (device->mr_ >= 0) { gpio_reset_pin(device->mr_); }
 
     return ESP_OK;
 }
 
 esp_err_t x4hc595_set_clock_delay(
-    const x4hc595_handle_t handle, const uint32_t shcp_clk_delay_us, const uint32_t stcp_clk_delay_us
+    x4hc595_t* device, const uint32_t shcp_clk_delay_us, const uint32_t stcp_clk_delay_us
 ) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    ic_driver_dev_t* dev = handle;
-
-    dev->shcp_clk_delay_us = shcp_clk_delay_us;
-    dev->stcp_clk_delay_us = stcp_clk_delay_us;
+    device->shcp_clk_delay_us = shcp_clk_delay_us;
+    device->stcp_clk_delay_us = stcp_clk_delay_us;
 
     return ESP_OK;
 }
 
-esp_err_t x4hc595_write(const x4hc595_handle_t handle, const uint8_t data) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    const ic_driver_dev_t* dev = handle;
+    // TODO: Update `current_states`
 
+    /* LSB first */
     for (int i = 0; i < 8; i++) {
-        gpio_set_level(dev->ds, data >> i & 0x01);
-        if (dev->shcp_clk_delay_us > 0) { esp_rom_delay_us(dev->shcp_clk_delay_us); }
-        gpio_set_level(dev->shcp, 1);
-        if (dev->shcp_clk_delay_us > 0) { esp_rom_delay_us(dev->shcp_clk_delay_us); }
-        gpio_set_level(dev->shcp, 0);
+        gpio_set_level(device->ds, data >> i & 0x01);
+        if (device->shcp_clk_delay_us > 0) { esp_rom_delay_us(device->shcp_clk_delay_us); }
+        gpio_set_level(device->shcp, 1);
+        if (device->shcp_clk_delay_us > 0) { esp_rom_delay_us(device->shcp_clk_delay_us); }
+        gpio_set_level(device->shcp, 0);
     }
 
     return ESP_OK;
 }
 
-esp_err_t x4hc595_latch(const x4hc595_handle_t handle) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+esp_err_t x4hc595_latch(const x4hc595_t* device) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    const ic_driver_dev_t* dev = handle;
-
-    gpio_set_level(dev->stcp, 1);
-    if (dev->stcp_clk_delay_us > 0) { esp_rom_delay_us(dev->stcp_clk_delay_us); }
-    gpio_set_level(dev->stcp, 0);
+    gpio_set_level(device->stcp, 1);
+    if (device->stcp_clk_delay_us > 0) { esp_rom_delay_us(device->stcp_clk_delay_us); }
+    gpio_set_level(device->stcp, 0);
 
     return ESP_OK;
 }
 
-esp_err_t x4hc595_enable_output(const x4hc595_handle_t handle) {
-    return x4hc595_oe_func_base(handle, 0);
+esp_err_t x4hc595_enable_output(x4hc595_t* device) {
+    return x4hc595_oe_func_base(device, 0);
 }
 
-esp_err_t x4hc595_disable_output(const x4hc595_handle_t handle) {
-    return x4hc595_oe_func_base(handle, 1);
+esp_err_t x4hc595_disable_output(x4hc595_t* device) {
+    return x4hc595_oe_func_base(device, 1);
 }
 
-esp_err_t x4hc595_reset(const x4hc595_handle_t handle) {
-    IC_DRIVER_CHECK_RETURN(handle != NULL, "The handle is NULL", ESP_ERR_INVALID_ARG);
+esp_err_t x4hc595_reset(x4hc595_t* device) {
+    IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    const ic_driver_dev_t* dev = handle;
-
-    if (dev->mr_ >= 0) {
-        gpio_set_level(dev->mr_, 0);
-        gpio_set_level(dev->mr_, 1);
+    if (device->mr_ >= 0) {
+        gpio_set_level(device->mr_, 0);
+        gpio_set_level(device->mr_, 1);
     } else {
         ESP_LOGI(TAG, "IC Master Reset Pin is offline, using software reset instead");
-        x4hc595_write(handle, 0x00);
-        x4hc595_latch(handle);
+        x4hc595_write(device, 0x00);
+        x4hc595_latch(device);
     }
 
     return ESP_OK;
