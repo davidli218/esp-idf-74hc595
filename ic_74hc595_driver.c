@@ -96,9 +96,7 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
     return ESP_OK;
 
 clean_up:
-    if (device->current_states.data) {
-        free(device->current_states.data);
-    }
+    free(device->current_states.data);
     return ret;
 }
 
