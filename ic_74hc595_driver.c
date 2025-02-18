@@ -40,7 +40,7 @@ static esp_err_t x4hc595_oe_func_base(x4hc595_t* device, const uint32_t level) {
 esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(config != NULL, "The pointer of config is NULL", ESP_ERR_INVALID_ARG);
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
-    IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must >= 0", ESP_ERR_INVALID_ARG);
+    IC_DRIVER_CHECK_RETURN(config->num_devices > 0, "Number of devices must > 0", ESP_ERR_INVALID_ARG);
 
     esp_err_t ret = ESP_OK;
 
@@ -105,14 +105,27 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device) {
 clean_up:
     free(device->sr_state.data);
     if (device->lr_states) { free(device->lr_states); }
+
+    gpio_reset_pin(device->shcp);
+    gpio_reset_pin(device->stcp);
+    gpio_reset_pin(device->ds);
+    if (device->oe_ >= 0) { gpio_reset_pin(device->oe_); }
+    if (device->mr_ >= 0) { gpio_reset_pin(device->mr_); }
+
     return ret;
 }
 
-esp_err_t x4hc595_deinit(const x4hc595_t* device) {
+esp_err_t x4hc595_deinit(x4hc595_t* device) {
     IC_DRIVER_CHECK_RETURN(device != NULL, "The pointer of device is NULL", ESP_ERR_INVALID_ARG);
 
-    if (device->sr_state.data) { free(device->sr_state.data); }
-    if (device->lr_states) { free(device->lr_states); }
+    if (device->sr_state.data) {
+        free(device->sr_state.data);
+        device->sr_state.data = NULL;
+    }
+    if (device->lr_states) {
+        free(device->lr_states);
+        device->lr_states = NULL;
+    }
 
     gpio_reset_pin(device->shcp);
     gpio_reset_pin(device->stcp);
@@ -139,7 +152,7 @@ esp_err_t x4hc595_write(x4hc595_t* device, const uint8_t data) {
 
     /* LSB first */
     for (int i = 0; i < 8; i++) {
-        gpio_set_level(device->ds, data >> i & 0x01);
+        gpio_set_level(device->ds, (data >> i) & 0x01);
         if (device->shcp_clk_delay_us > 0) { esp_rom_delay_us(device->shcp_clk_delay_us); }
         gpio_set_level(device->shcp, 1);
         if (device->shcp_clk_delay_us > 0) { esp_rom_delay_us(device->shcp_clk_delay_us); }

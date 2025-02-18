@@ -9,12 +9,12 @@
  * @brief Configuration structure for x4HC595 shift register.
  */
 typedef struct {
-    gpio_num_t mr_;     /*!<         Master Reset         */
-    gpio_num_t shcp;    /*!<  Shift Register Clock Pulse  */
+    gpio_num_t mr_;     /*!< Master Reset */
+    gpio_num_t shcp;    /*!< Shift Register Clock Pulse */
     gpio_num_t stcp;    /*!< Storage Register Clock Pulse */
-    gpio_num_t oe_;     /*!<        Output Enable         */
-    gpio_num_t ds;      /*!<         Data Serial          */
-    size_t num_devices; /*!<   Number of cascaded chips   */
+    gpio_num_t oe_;     /*!< Output Enable */
+    gpio_num_t ds;      /*!< Data Serial */
+    size_t num_devices; /*!< Number of cascaded devices */
 } x4hc595_config_t;
 
 /**
@@ -40,7 +40,7 @@ typedef struct {
     size_t num_devices;                /*!< Number of cascaded devices   (级联芯片的数量) */
     uint32_t is_output_enabled;        /*!< Output enable status         (输出使能状态) */
     x4hc595_sr_state_queue_t sr_state; /*!< Shift register states        (移位寄存器状态) */
-    uint32_t* lr_states;               /*!< Latch register states        (锁存寄存器状态) */
+    uint8_t* lr_states;                /*!< Latch register states        (锁存寄存器状态) */
 } x4hc595_t;
 
 /**
@@ -66,7 +66,7 @@ esp_err_t x4hc595_init(const x4hc595_config_t* config, x4hc595_t* device);
  * - `ESP_OK`               Successful deinitialization.
  * - `ESP_ERR_INVALID_ARG`  The handle is invalid or `NULL`.
  */
-esp_err_t x4hc595_deinit(const x4hc595_t* device);
+esp_err_t x4hc595_deinit(x4hc595_t* device);
 
 /**
  * @brief Set the clock delay for the x4HC595 device.
